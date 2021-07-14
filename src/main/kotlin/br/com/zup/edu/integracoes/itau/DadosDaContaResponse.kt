@@ -2,7 +2,7 @@ package br.com.zup.edu.integracoes.itau
 
 import br.com.zup.edu.pix.entidades.ContaAssociada
 
-data class DadosDaContaResponseResponse(
+data class DadosDaContaResponse(
     val tipo: String,
     val instituicao: InstiuicaoResponse,
     val agencia: String,
