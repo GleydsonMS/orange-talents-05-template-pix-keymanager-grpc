@@ -2,6 +2,9 @@ package br.com.zup.edu.pix.remove
 
 import br.com.zup.edu.KeyManagerRemoveServiceGrpc
 import br.com.zup.edu.RemoveChavePixRequest
+import br.com.zup.edu.integracoes.bcb.BancoCentralClient
+import br.com.zup.edu.integracoes.bcb.DeletePixKeyRequest
+import br.com.zup.edu.integracoes.bcb.DeletePixKeyResponse
 import br.com.zup.edu.pix.entidades.ChavePix
 import br.com.zup.edu.pix.entidades.ContaAssociada
 import br.com.zup.edu.pix.enums.TipoConta
@@ -14,6 +17,8 @@ import io.micronaut.context.annotation.Bean
 import io.micronaut.context.annotation.Factory
 import io.micronaut.grpc.annotation.GrpcChannel
 import io.micronaut.grpc.server.GrpcServerChannel
+import io.micronaut.http.HttpResponse
+import io.micronaut.test.annotation.MockBean
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -24,12 +29,19 @@ import org.junit.jupiter.api.assertThrows
 import java.util.*
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.containsInAnyOrder
+import org.mockito.Mockito
+import org.mockito.Mockito.`when`
+import java.time.LocalDateTime
+import javax.inject.Inject
 
 @MicronautTest(transactional = false)
 internal class RemoveChavePixEndpointTest(
     val repository: ChavePixRepository,
     val grpcClient: KeyManagerRemoveServiceGrpc.KeyManagerRemoveServiceBlockingStub,
 ) {
+
+    @Inject
+    lateinit var bcb: BancoCentralClient
 
     lateinit var chavePixExistente: ChavePix
 
@@ -46,6 +58,13 @@ internal class RemoveChavePixEndpointTest(
 
     @Test
     fun `deve remover uma chave pix existente no banco de dados`() {
+
+        `when`(bcb.deletaChavePix("rafael@ponte.com", DeletePixKeyRequest("rafael@ponte.com")))
+            .thenReturn(HttpResponse.ok(
+                DeletePixKeyResponse(
+                    key = "rafael@ponte.com",
+                    participant = ContaAssociada.ITAU_UNIBANCO_ISPB,
+                    deletedAt = LocalDateTime.now())))
 
         val response = grpcClient.remover(RemoveChavePixRequest.newBuilder()
                                                                 .setPixId(chavePixExistente.id)
@@ -108,6 +127,29 @@ internal class RemoveChavePixEndpointTest(
                 Pair("clienteId", "Não é um formato válido de UUID"),
             ))
         }
+    }
+
+    @Test
+    fun `nao deve remover chave pix quando ocorrer algum erro no banco central`() {
+        `when`(bcb.deletaChavePix("rafael@ponte.com", DeletePixKeyRequest("rafael@ponte.com")))
+            .thenReturn(HttpResponse.unprocessableEntity())
+
+        val errors = assertThrows<StatusRuntimeException> {
+            grpcClient.remover(RemoveChavePixRequest.newBuilder()
+                .setPixId(chavePixExistente.id)
+                .setClienteId(chavePixExistente.clienteId.toString())
+                .build())
+        }
+
+        with(errors) {
+            assertEquals(Status.FAILED_PRECONDITION.code, status.code)
+            assertEquals("Erro ao remover chave Pix no Banco Central (BDB)", status.description)
+        }
+    }
+
+    @MockBean(BancoCentralClient::class)
+    fun bcb(): BancoCentralClient? {
+        return Mockito.mock(BancoCentralClient::class.java)
     }
 
     @Factory

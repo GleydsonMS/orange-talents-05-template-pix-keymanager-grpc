@@ -4,6 +4,7 @@ import br.com.zup.edu.ChavePixRequest
 import br.com.zup.edu.KeyManagerServiceGrpc
 import br.com.zup.edu.TipoChave.EMAIL
 import br.com.zup.edu.TipoConta.CONTA_CORRENTE
+import br.com.zup.edu.integracoes.bcb.*
 import br.com.zup.edu.integracoes.itau.DadosDaContaResponse
 import br.com.zup.edu.integracoes.itau.ErpItau
 import br.com.zup.edu.integracoes.itau.InstiuicaoResponse
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito
 import org.mockito.Mockito.`when`
+import java.time.LocalDateTime
 import java.util.*
 import javax.inject.Inject
 
@@ -43,6 +45,9 @@ internal class RegistraChavePixEndpointTest(
 ) {
     @Inject
     lateinit var erpItau: ErpItau
+
+    @Inject
+    lateinit var bcb: BancoCentralClient
 
     companion object {
         val CLIENTE_ID = "c56dfef4-7901-44fb-84e2-a2cefb157890"
@@ -57,6 +62,9 @@ internal class RegistraChavePixEndpointTest(
     fun `deve registrar uma nova chave pix`() {
         `when`(erpItau.consultaContaCliente(CLIENTE_ID, "CONTA_CORRENTE"))
             .thenReturn(HttpResponse.ok(dadosDaContaResponse()))
+
+        `when`(bcb.criaChavePix(createPixKeyRequest()))
+            .thenReturn(HttpResponse.created(createPixKeyResponse()))
 
         val response = grpcClient.registrar(ChavePixRequest.newBuilder()
                                                             .setClienteId(CLIENTE_ID)
@@ -128,7 +136,7 @@ internal class RegistraChavePixEndpointTest(
     }
 
     @Test
-    fun `nao deve registrar chave pix quando o valor informado for invalido`() {
+    fun `nao deve registrar chave pix quando o valor da chave pix informado for invalido`() {
         val errors = assertThrows<StatusRuntimeException> {
             grpcClient.registrar(ChavePixRequest.newBuilder()
                                                     .setClienteId(CLIENTE_ID)
@@ -147,9 +155,37 @@ internal class RegistraChavePixEndpointTest(
         }
     }
 
+    @Test
+    fun `nao deve registrar chave pix quando nao for possivel registrar chave no banco central`() {
+        `when`(erpItau.consultaContaCliente(CLIENTE_ID, "CONTA_CORRENTE"))
+            .thenReturn(HttpResponse.ok(dadosDaContaResponse()))
+
+        `when`(bcb.criaChavePix(createPixKeyRequest()))
+            .thenReturn(HttpResponse.badRequest())
+
+        val errors = assertThrows<StatusRuntimeException> {
+            grpcClient.registrar(ChavePixRequest.newBuilder()
+                .setClienteId(CLIENTE_ID)
+                .setTipoChave(EMAIL)
+                .setChavePix("rafael@ponte.com")
+                .setTipoConta(CONTA_CORRENTE)
+                .build())
+        }
+
+        with(errors) {
+            assertEquals(Status.FAILED_PRECONDITION.code, status.code)
+            assertEquals("Erro ao registrar chave pix no Banco Central (BCB)", status.description)
+        }
+    }
+
     @MockBean(ErpItau::class)
     fun erpItau(): ErpItau? {
         return Mockito.mock(ErpItau::class.java)
+    }
+
+    @MockBean(BancoCentralClient::class)
+    fun bcb(): BancoCentralClient? {
+        return Mockito.mock(BancoCentralClient::class.java)
     }
 
     @Factory
@@ -187,6 +223,42 @@ internal class RegistraChavePixEndpointTest(
                 agencia = "0001",
                 numeroDaConta = "291900"
             )
+        )
+    }
+
+    private fun createPixKeyRequest(): CreatePixKeyRequest {
+        return CreatePixKeyRequest(
+            keyType = KeyType.EMAIL,
+            key = "rafael@ponte.com",
+            bankAccount = bankAccount(),
+            owner = owner()
+        )
+    }
+
+    private fun bankAccount(): BankAccount {
+        return BankAccount(
+            participant = ContaAssociada.ITAU_UNIBANCO_ISPB,
+            branch = "0001",
+            accountNumber = "291900",
+            accountType = BankAccount.AccountType.CACC
+        )
+    }
+
+    private fun owner(): Owner {
+        return Owner(
+            type = Owner.OwnerType.NATURAL_PERSON,
+            name = "Rafael M C Ponte",
+            taxIdNumber = "02467781054",
+        )
+    }
+
+    private fun createPixKeyResponse(): CreatePixKeyResponse {
+        return CreatePixKeyResponse(
+            keyType = KeyType.EMAIL,
+            key = "rafael@ponte.com",
+            bankAccount = bankAccount(),
+            owner = owner(),
+            createdAt = LocalDateTime.now(),
         )
     }
 }

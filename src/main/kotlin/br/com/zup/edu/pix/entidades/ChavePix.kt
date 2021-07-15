@@ -47,7 +47,7 @@ class ChavePix(
         return false
     }
 
-    private fun isAleatoria(): Boolean {
+    fun isAleatoria(): Boolean {
         return tipoChave == TipoChave.ALEATORIA
     }
 }
