@@ -34,7 +34,7 @@ class ChavePix(
     val conta: ContaAssociada
 ) {
     @Id
-    val id: String? = UUID.randomUUID().toString()
+    var id: String? = UUID.randomUUID().toString()
 
     @Column(nullable = false)
     val criadaEm: LocalDateTime = LocalDateTime.now()
