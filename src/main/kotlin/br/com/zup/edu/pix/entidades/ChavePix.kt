@@ -22,7 +22,7 @@ class ChavePix(
 
     @field:NotBlank
     @Column(unique = true, nullable = false)
-    val chavePix: String,
+    var chavePix: String,
 
     @field:NotNull
     @Enumerated(EnumType.STRING)
@@ -38,4 +38,16 @@ class ChavePix(
 
     @Column(nullable = false)
     val criadaEm: LocalDateTime = LocalDateTime.now()
+
+    fun atualiza(chavePix: String): Boolean {
+        if (isAleatoria()) {
+            this.chavePix = chavePix
+            return true
+        }
+        return false
+    }
+
+    private fun isAleatoria(): Boolean {
+        return tipoChave == TipoChave.ALEATORIA
+    }
 }
