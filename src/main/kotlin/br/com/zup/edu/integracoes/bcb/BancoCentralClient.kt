@@ -1,15 +1,14 @@
 package br.com.zup.edu.integracoes.bcb
 
+import br.com.zup.edu.pix.Instituicoes
+import br.com.zup.edu.pix.busca.ChavePixInfo
 import br.com.zup.edu.pix.entidades.ChavePix
 import br.com.zup.edu.pix.entidades.ContaAssociada
 import br.com.zup.edu.pix.enums.TipoChave
 import br.com.zup.edu.pix.enums.TipoConta
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.MediaType
-import io.micronaut.http.annotation.Body
-import io.micronaut.http.annotation.Delete
-import io.micronaut.http.annotation.PathVariable
-import io.micronaut.http.annotation.Post
+import io.micronaut.http.annotation.*
 import io.micronaut.http.client.annotation.Client
 import java.time.LocalDateTime
 
@@ -28,6 +27,10 @@ interface BancoCentralClient {
         consumes = [MediaType.APPLICATION_XML]
     )
     fun deletaChavePix(@PathVariable key: String, @Body request: DeletePixKeyRequest): HttpResponse<DeletePixKeyResponse>
+
+    @Get("/api/v1/pix/keys/{key}",
+    consumes = [MediaType.APPLICATION_XML])
+    fun buscaPorChavePix(@PathVariable key: String): HttpResponse<PixKeyDetailsResponse>
 
 }
 
@@ -125,3 +128,29 @@ data class DeletePixKeyResponse(
     val participant: String,
     val deletedAt: LocalDateTime
 )
+
+data class PixKeyDetailsResponse(
+    val keyType: KeyType,
+    val key: String,
+    val bankAccount: BankAccount,
+    val owner: Owner,
+    val createdAt: LocalDateTime
+) {
+    fun toModel(): ChavePixInfo {
+        return ChavePixInfo(
+            tipoChave = keyType.type!!,
+            chavePix = this.key,
+            tipoConta = when (this.bankAccount.accountType) {
+                BankAccount.AccountType.CACC -> TipoConta.CONTA_POUPANCA
+                BankAccount.AccountType.SVGS -> TipoConta.CONTA_POUPANCA
+            },
+            conta = ContaAssociada(
+                instituicao = Instituicoes.nome(bankAccount.participant),
+                nomeDoTitular = owner.name,
+                cpfDoTitular = owner.taxIdNumber,
+                agencia = bankAccount.branch,
+                numeroDaConta = bankAccount.accountNumber
+            )
+        )
+    }
+}

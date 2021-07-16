@@ -50,4 +50,6 @@ class ChavePix(
     fun isAleatoria(): Boolean {
         return tipoChave == TipoChave.ALEATORIA
     }
+
+    fun pertenceAo(clienteId: UUID) = this.clienteId.equals(clienteId)
 }

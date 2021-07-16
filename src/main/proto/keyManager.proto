@@ -3,6 +3,7 @@ syntax = "proto3";
 option java_multiple_files = true;
 
 package br.com.zup.edu;
+import "google/protobuf/timestamp.proto";
 
 service KeyManagerService {
   rpc registrar (ChavePixRequest) returns (ChavePixResponse) {}
@@ -10,6 +11,10 @@ service KeyManagerService {
 
 service KeyManagerRemoveService {
   rpc remover (RemoveChavePixRequest) returns (RemoveChavePixResponse) {}
+}
+
+service KeyManagerBuscaService {
+  rpc buscar (BuscaChavePixRequest) returns (BuscaChavePixResponse) {}
 }
 
 enum TipoChave {
@@ -47,4 +52,38 @@ message RemoveChavePixRequest {
 message RemoveChavePixResponse {
   string clienteId = 1;
   string pixId = 2;
+}
+
+message BuscaChavePixRequest {
+  message FiltroPorPixId {
+    string clienteId = 1;
+    string pixId = 2;
+  }
+
+  oneof filtro {
+    FiltroPorPixId pixId = 1;
+    string chave = 2;
+  }
+}
+
+message BuscaChavePixResponse {
+  message ChavePix {
+    message ContaInfo {
+      TipoConta tipoConta = 1;
+      string instituicao = 2;
+      string nomeTitular = 3;
+      string cpfTitular = 4;
+      string agencia = 5;
+      string numeroConta = 6;
+    }
+
+    TipoChave tipoChave = 1;
+    string chave = 2;
+    ContaInfo conta = 3;
+    google.protobuf.Timestamp criadaEm = 4;
+  }
+
+  string clienteId = 1;
+  string pixId = 2;
+  ChavePix chavePix = 3;
 }
