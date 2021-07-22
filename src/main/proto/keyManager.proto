@@ -17,6 +17,10 @@ service KeyManagerBuscaService {
   rpc buscar (BuscaChavePixRequest) returns (BuscaChavePixResponse) {}
 }
 
+service KeyManagerListaService {
+  rpc listar (ListaChavePixRequest) returns (ListaChavePixResponse) {}
+}
+
 enum TipoChave {
   TIPO_CHAVE_DESCONHECIDA = 0;
   CPF = 1;
@@ -86,4 +90,21 @@ message BuscaChavePixResponse {
   string clienteId = 1;
   string pixId = 2;
   ChavePix chavePix = 3;
+}
+
+message ListaChavePixRequest {
+  string clienteId = 1;
+}
+
+message ListaChavePixResponse {
+  message ChavePix {
+    string pixId = 1;
+    TipoChave tipoChave = 2;
+    string chavePix = 3;
+    TipoConta tipoConta = 4;
+    google.protobuf.Timestamp criadaEm = 5;
+  }
+
+  string clienteId = 1;
+  repeated ChavePix chavesPix = 2;
 }
